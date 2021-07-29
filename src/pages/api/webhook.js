@@ -42,25 +42,23 @@ export default async (req, res) => {
     const sig = req.headers["stripe-signature"];
 
     let event;
-
+    console.log("hit");
     // verify the event posted came from stripe
     try {
       event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
-    } catch (error) {
-      console.log(error.message);
-      return res.status(400).send(`Webhook error: ${error.message}`);
+    } catch (err) {
+      console.log("ERROR", err.message);
+      return res.status(400).send(`Webhook error: ${err.message}`);
     }
-
+    console.log("ddjd");
     //handle the checkout session completed event
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-
+      console.log("hit2");
       // Fulfill the order.....
       return fulfillOrder(session)
         .then(() => res.status(200))
-        .catch((error) =>
-          res.status(400).send(`Webhook Error: ${error.message}`)
-        );
+        .catch((err) => res.status(400).send(`Webhook Error: ${err.message}`));
     }
   }
 };
