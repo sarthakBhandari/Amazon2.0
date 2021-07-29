@@ -1,5 +1,6 @@
 import { buffer } from "micro";
 import * as admin from "firebase-admin";
+import Cors from "micro-cors";
 
 // Secure a connection firebase from the backend
 const serviceAccount = require("../../../permissions.json"); //got this file from online firebase service accounts
@@ -35,14 +36,27 @@ const fulfillOrder = async (session) => {
     });
 };
 
-export default async (req, res) => {
+export const config = {
+  api: {
+    bodyParser: false,
+    externalResolver: true, //stripe is the external resolver
+  },
+};
+
+const cors = Cors({
+  allowMethods: ["POST", "HEAD"],
+});
+
+const webhookHandler = async (req, res) => {
   if (req.method === "POST") {
     const requestBuffer = await buffer(req); // need to accept as info of buffer
     const payload = requestBuffer.toString();
+    // const parsedBody = req.isBase64Encoded
+    //   ? Buffer.from(req.body, "base64").toString("utf-8")
+    //   : req.body;
     const sig = req.headers["stripe-signature"];
 
     let event;
-    console.log("hit");
     // verify the event posted came from stripe
     try {
       event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
@@ -50,11 +64,9 @@ export default async (req, res) => {
       console.log("ERROR", err.message);
       return res.status(400).send(`Webhook error: ${err.message}`);
     }
-    console.log("ddjd");
     //handle the checkout session completed event
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      console.log("hit2");
       // Fulfill the order.....
       return fulfillOrder(session)
         .then(() => res.status(200))
@@ -63,9 +75,4 @@ export default async (req, res) => {
   }
 };
 
-export const config = {
-  api: {
-    bodyParser: false,
-    externalResolver: true, //stripe is the external resolver
-  },
-};
+export default cors(webhookHandler);
